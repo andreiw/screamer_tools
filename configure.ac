@@ -18,7 +18,14 @@ AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 # Check for C compiler
 AC_PROG_CC
+
 # We can add more checks in this section
+PKG_PROG_PKG_CONFIG
+PKG_CHECK_MODULES([LUSB], [libusb])
+PKG_CHECK_MODULES([LEVENT], [libevent])
+
+# Declare config.h as output header.
+AC_CONFIG_HEADERS([config.h])
 
 # Tells automake to create a Makefile
 # See https://www.gnu.org/software/automake/manual/html_node/Requirements.html
