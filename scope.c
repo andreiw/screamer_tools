@@ -377,6 +377,7 @@ typedef enum {
   STATE_STATUS,
   STATE_DATA,
   STATE_REM,
+  STATE_TLP_COMPLETE,
 } tlp_process_state_t;
 
 static void fpga_process_tlp (int socket,
@@ -449,6 +450,24 @@ static void fpga_process_tlp (int socket,
           /*
            * PCIe TLP and LAST.
            */
+          tlp_process_state = STATE_REM;
+          continue;
+        }
+
+        status_field >>= 4;
+      } else if (tlp_process_state == STATE_REM) {
+        if (current_status_field == 7) {
+          tlp_process_state = STATE_TLP_COMPLETE;
+          continue;
+        }
+
+        if (p == e) {
+          break;
+        }
+
+        p++;
+        current_status_field++;
+      } else if (tlp_process_state == STATE_TLP_COMPLETE) {
           if (tlp_dword_index >= 3 &&
               tlp_dword_index <= TLP_RX_MAX_SIZE_IN_DWORDS) {
             if (verbose) {
@@ -467,23 +486,8 @@ static void fpga_process_tlp (int socket,
             fprintf (stderr, "Bad PCIe TLP received\n");
           }
 
-          tlp_process_state = STATE_REM;
-          continue;
-        }
-
-        status_field >>= 4;
-      } else if (tlp_process_state == STATE_REM) {
-        if (current_status_field == 7) {
           tlp_process_state = STATE_STATUS;
           continue;
-        }
-
-        if (p == e) {
-          break;
-        }
-
-        p++;
-        current_status_field++;
       }
     }
   }
