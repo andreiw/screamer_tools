@@ -1,4 +1,6 @@
 /*
+ * Requires the pcileech gateware.
+ *
  * Based on:
  * - https://github.com/ufrisk/LeechCore-plugins/tree/master/leechcore_ft601_driver_linux (GPLv3)
  * - https://github.com/ufrisk/LeechCore/blob/master/leechcore/device_fpga.c (GPLv3)
