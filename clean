@@ -1,0 +1,4 @@
+autoreconf --verbose --install --force
+./configure
+make maintainer-clean
+rm -rf ./configure .deps Makefile.in aclocal.m4 build-aux config.h.in 
