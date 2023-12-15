@@ -2,7 +2,7 @@
 # The first parameter is project name
 # second is version number
 # third is bug report address
-AC_INIT([ft601_2_udp], [1.0])
+AC_INIT([screamer_scope], [1.0])
 
 # Safety checks in case user overwritten --srcdir
 AC_CONFIG_SRCDIR([main.c])

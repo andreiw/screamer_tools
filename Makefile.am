@@ -1,7 +1,7 @@
 PKGLIBS = libusb libevent
 
-bin_PROGRAMS = ft601_2_udp
-ft601_2_udp_SOURCES = main.c
-ft601_2_udp_CFLAGS = -Wall -Wextra
-ft601_2_udp_CPPFLAGS = @LUSB_CFLAGS@
-ft601_2_udp_LDADD = @LUSB_LIBS@
+bin_PROGRAMS = screamer_scope
+screamer_scope_SOURCES = main.c
+screamer_scope_CFLAGS = -Wall -Wextra
+screamer_scope_CPPFLAGS = @LUSB_CFLAGS@
+screamer_scope_LDADD = @LUSB_LIBS@

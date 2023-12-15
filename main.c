@@ -11,6 +11,7 @@
  *   (0x400 should be enough, or just reuse the
  *   global data buffer).
  * - split up into ftdi/fpga/main components.
+ * - BAR enable.
  */
 
 #include <stdio.h>
