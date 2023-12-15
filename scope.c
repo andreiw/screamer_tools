@@ -380,62 +380,91 @@ typedef enum {
   STATE_TLP_COMPLETE,
 } tlp_process_state_t;
 
-static void fpga_process_tlp (int socket,
-                              struct sockaddr_in *sa)
+typedef enum {
+  TLP_NO_DATA,
+  TLP_OUT_OF_SYNC,
+  TLP_COMPLETE,
+  TLP_CORRUPT,
+} tlp_process_result_t;
+
+typedef struct {
+  uint32_t *p;
+  uint32_t *e;
+} tlp_process_state;
+
+static
+tlp_process_result_t fpga_process_tlp (tlp_process_state *context,
+                                       void **tlp_data,
+                                       uint32_t *tlp_size)
 {
   int err;
-  int transferred;
   uint32_t status_field;
   int tlp_dword_index;
   int current_status_field;
   tlp_process_state_t tlp_process_state;
 
   tlp_process_state = STATE_STATUS;
+  fprintf (stderr, "-> STATUS\n");
   while (1) {
-    uint32_t *e;
-    uint32_t *p;
-    transferred = 0;
-    err = ftdi_read (data, sizeof (data), &transferred);
-    if (err != 0) {
-      continue;
-    }
-    if ((transferred % sizeof (uint32_t)) != 0) {
-      fprintf (stderr, "Transfer size not aligned to 32 bits\n");
-    }
-    transferred /= sizeof (uint32_t);
+    if (context->p == context->e) {
+      int transferred;
 
-    p = (void *) data;
-    e = p + transferred;
-    if (p == e) {
-      continue;
+      transferred = 0;
+      err = ftdi_read (data, sizeof (data), &transferred);
+      if (err != 0) {
+        continue;
+      }
+      if ((transferred % sizeof (uint32_t)) != 0) {
+        fprintf (stderr, "Transfer size not aligned to 32 bits\n");
+      }
+      transferred /= sizeof (uint32_t);
+
+      context->p = (void *) data;
+      context->e = context->p + transferred;
+
+      if (context->p == context->e) {
+        if (tlp_process_state == STATE_STATUS) {
+          /*
+           * Can only do this if we're not in the middle
+           * of processing a TLP.
+           */
+          break;
+        }
+
+        continue;
+      }
     }
 
     while (1) {
       if (tlp_process_state == STATE_STATUS) {
         tlp_dword_index = 0;
         current_status_field = 0;
-        while (*p == 0x55556666 && p < e) {
-          p++;
+        while (*context->p == 0x55556666 &&
+               context->p < context->e) {
+          context->p++;
         }
 
-        if (p == e) {
+        if (context->p == context->e) {
           break;
         }
 
-        status_field = *p++;
+        hex_dump ((void *) context->p, 4 * (context->e - context->p), 16);
+        status_field = *context->p++;
         if ((status_field & 0xf0000000) != 0xe0000000) {
-          fprintf (stderr, "Missing header\n");
+          fprintf (stderr, "STATUS -> OUT_OF_SYNC\n");
+          return TLP_OUT_OF_SYNC;
         } else {
           tlp_process_state = STATE_DATA;
+          fprintf (stderr, "STATUS 0x%x -> DATA\n", status_field);
         }
       } else if (tlp_process_state == STATE_DATA) {
+        fprintf (stderr, "DATA %u, status_field 0x%x\n", current_status_field, status_field);
         if (current_status_field == 7) {
-          fprintf (stderr, "Bad PCIe TLP received (data never finished)\n");
-          tlp_process_state = STATE_STATUS;
-          continue;
+          fprintf (stderr, "DATA -> CORRUPT\n");
+          return TLP_CORRUPT;
         }
 
-        if (p == e) {
+        if (context->p == context->e) {
           break;
         }
 
@@ -444,13 +473,14 @@ static void fpga_process_tlp (int socket,
           /*
            * PCIe TLP.
            */
-          tlp_dwords[tlp_dword_index++] = *p++;
+          tlp_dwords[tlp_dword_index++] = *context->p++;
         }
         if ((status_field & 0x07) == 0x04) {
           /*
            * PCIe TLP and LAST.
            */
           tlp_process_state = STATE_REM;
+          fprintf (stderr, "DATA -> REM\n");
           continue;
         }
 
@@ -458,39 +488,34 @@ static void fpga_process_tlp (int socket,
       } else if (tlp_process_state == STATE_REM) {
         if (current_status_field == 7) {
           tlp_process_state = STATE_TLP_COMPLETE;
+          fprintf (stderr, "REM -> COMPLETE\n");
           continue;
         }
 
-        if (p == e) {
+        if (context->p == context->e) {
           break;
         }
 
-        p++;
+        context->p++;
         current_status_field++;
       } else if (tlp_process_state == STATE_TLP_COMPLETE) {
-          if (tlp_dword_index >= 3 &&
-              tlp_dword_index <= TLP_RX_MAX_SIZE_IN_DWORDS) {
-            if (verbose) {
-              hex_dump ((void *) tlp_dwords,
-                        tlp_dword_index << 2, 16);
-            }
+        if (tlp_dword_index >= 3 &&
+            tlp_dword_index <= TLP_RX_MAX_SIZE_IN_DWORDS) {
+          *tlp_data = tlp_dwords;
+          *tlp_size = tlp_dword_index << 2;
+          fprintf (stderr, "COMPLETE ->\n");
+          return TLP_COMPLETE;
+        }
 
-            err = sendto(socket, tlp_dwords,
-                         tlp_dword_index << 2, 0,
-                         (struct sockaddr *) sa,
-                         sizeof (*sa));
-            if (err < 0)  {
-              fprintf (stderr, "sendto: %s\n", strerror (errno));
-            }
-          } else {
-            fprintf (stderr, "Bad PCIe TLP received\n");
-          }
-
-          tlp_process_state = STATE_STATUS;
-          continue;
+        fprintf (stderr, "tlp_dword_index is 0x%x\n", tlp_dword_index);
+        fprintf (stderr, "COMPLETE -> CORRUPT\n");
+        return TLP_CORRUPT;
       }
     }
   }
+
+  fprintf (stderr, "STATUS -> NO_DATA\n");
+  return TLP_NO_DATA;
 }
 
 static int ftdi_get (unsigned long index)
@@ -657,6 +682,7 @@ int main (int argc, char **argv)
   in_port_t remote_port;
   int socket_fd;
   struct sockaddr_in sa;
+  tlp_process_state context;
 
   device_index = 0;
   remote_addr = "127.0.0.1";
@@ -732,8 +758,30 @@ int main (int argc, char **argv)
     return -1;
   }
 
+  context.p = context.e = NULL;
   while (1) {
-    fpga_process_tlp (socket_fd, &sa);
+    void *tlp_data;
+    uint32_t tlp_size;
+    tlp_process_result_t state;
+
+    state = fpga_process_tlp (&context, &tlp_data, &tlp_size);
+    if (state == TLP_OUT_OF_SYNC) {
+      fprintf (stderr, "Missing header\n");
+    } else if (state == TLP_CORRUPT) {
+      fprintf (stderr, "Bad PCIe TLP received\n");
+    } else if (state == TLP_COMPLETE) {
+      if (verbose) {
+        printf ("TLP of 0x%x bytes\n", tlp_size);
+        hex_dump (tlp_data, tlp_size, 16);
+      }
+
+      err = sendto(socket_fd, tlp_data, tlp_size,
+                   0, (struct sockaddr *) &sa,
+                   sizeof (sa));
+      if (err < 0)  {
+        fprintf (stderr, "sendto: %s\n", strerror (errno));
+      }
+    }
   }
 
   return 0;
