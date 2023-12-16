@@ -73,6 +73,18 @@ typedef struct {
 } tlp_process_context;
 
 bool
+tlp_is_cw0 (void *tlp_data, void **header);
+
+unsigned
+tlp_cfg_reg (void *tlp_header);
+
+uint32_t
+tlp_cfg_be (void *tlp_header);
+
+uint32_t
+tlp_cfg_data (void *tlp_header);
+
+bool
 tlp_dw_is_prefix (uint32_t dw);
 
 int
