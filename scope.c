@@ -396,14 +396,72 @@ typedef struct {
 } tlp_process_context;
 
 static
+bool
+tlp_dw_is_prefix (uint32_t dw)
+{
+  uint8_t dw0 = (uint8_t) dw;
+  uint8_t fmt = dw0 >> 5;
+
+  if (fmt == 4) {
+    /*
+     * Prefix.
+     */
+    return true;
+  }
+
+  return false;
+}
+
+static
+int
+tlp_header_count (uint32_t dw)
+{
+  int count;
+  uint8_t *db;
+  uint8_t fmt;
+  int len;
+  int digest;
+
+  db = (void *) &dw;
+  fmt = (db[0] >> 5) & 3;
+  len = db[3] | ((int) (db[2] & 0x3)) << 8;
+  digest = db[2] >> 7;
+
+  if (len == 0) {
+    len = 0x400;
+  }
+
+  switch (fmt) {
+  case 0:
+    count = 3;
+    break;
+  case 1:
+    count = 4;
+    break;
+  case 2:
+    count = 3 + len;
+    break;
+  case 3:
+    count = 4 + len;
+  }
+
+  return count + digest;
+}
+
+static
 tlp_process_result_t fpga_process_tlp (tlp_process_context *c,
                                        void **tlp_data,
                                        uint32_t *tlp_size)
 {
   int err;
   int tlp_dword_index;
+  int tlp_dword_count;
+  bool tlp_header_seen;
 
   tlp_dword_index = 0;
+  tlp_dword_count = 0;
+  tlp_header_seen = false;
+
   while (1) {
     if (c->p == c->e) {
       int transferred;
@@ -422,7 +480,7 @@ tlp_process_result_t fpga_process_tlp (tlp_process_context *c,
       c->e = c->p + transferred;
 
       if (c->p == c->e) {
-        if (c->state == STATE_STATUS) {
+        if (!tlp_header_seen) {
           /*
            * Can only do this if we're not in the middle
            * of processing a TLP.
@@ -450,7 +508,7 @@ tlp_process_result_t fpga_process_tlp (tlp_process_context *c,
         if ((c->status_field & 0xf0000000) != 0xe0000000) {
           return TLP_OUT_OF_SYNC;
         } else {
-            c->state = STATE_DATA;
+          c->state = STATE_DATA;
         }
       } else if (c->state == STATE_DATA) {
         if (c->status_index == 7) {
@@ -467,8 +525,20 @@ tlp_process_result_t fpga_process_tlp (tlp_process_context *c,
           /*
            * PCIe TLP.
            */
-          tlp_dwords[tlp_dword_index++] = *c->p++;
+          tlp_dwords[tlp_dword_index] = *c->p++;
+
+          if (!tlp_header_seen) {
+            uint32_t dw = tlp_dwords[tlp_dword_index];
+            if (tlp_dw_is_prefix (dw)) {
+              tlp_dword_count++;
+            } else {
+              tlp_header_seen = true;
+              tlp_dword_count += tlp_header_count (dw);
+            }
+          }
+          tlp_dword_index++;
         }
+
         if ((c->status_field & 0x07) == 0x04) {
           /*
            * PCIe TLP and LAST.
@@ -497,13 +567,14 @@ tlp_process_result_t fpga_process_tlp (tlp_process_context *c,
           c->state = STATE_REM;
         }
 
-        if (tlp_dword_index >= 3 &&
-            tlp_dword_index <= TLP_RX_MAX_SIZE_IN_DWORDS) {
+        if (tlp_dword_index == tlp_dword_count) {
           *tlp_data = tlp_dwords;
           *tlp_size = tlp_dword_index << 2;
           return TLP_COMPLETE;
         }
 
+        fprintf (stderr, "Disagreement on TLP size (header -> %u dw, ctual -> %u dw\n",
+                tlp_dword_count, tlp_dword_index);
         return TLP_CORRUPT;
       }
     }
