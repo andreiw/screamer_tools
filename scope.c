@@ -390,23 +390,22 @@ typedef enum {
 typedef struct {
   uint32_t *p;
   uint32_t *e;
-} tlp_process_state;
+  tlp_process_state_t state;
+  uint32_t status_field;
+  int status_index;
+} tlp_process_context;
 
 static
-tlp_process_result_t fpga_process_tlp (tlp_process_state *context,
+tlp_process_result_t fpga_process_tlp (tlp_process_context *c,
                                        void **tlp_data,
                                        uint32_t *tlp_size)
 {
   int err;
-  uint32_t status_field;
   int tlp_dword_index;
-  int current_status_field;
-  tlp_process_state_t tlp_process_state;
 
-  tlp_process_state = STATE_STATUS;
-  fprintf (stderr, "-> STATUS\n");
+  tlp_dword_index = 0;
   while (1) {
-    if (context->p == context->e) {
+    if (c->p == c->e) {
       int transferred;
 
       transferred = 0;
@@ -419,11 +418,11 @@ tlp_process_result_t fpga_process_tlp (tlp_process_state *context,
       }
       transferred /= sizeof (uint32_t);
 
-      context->p = (void *) data;
-      context->e = context->p + transferred;
+      c->p = (void *) data;
+      c->e = c->p + transferred;
 
-      if (context->p == context->e) {
-        if (tlp_process_state == STATE_STATUS) {
+      if (c->p == c->e) {
+        if (c->state == STATE_STATUS) {
           /*
            * Can only do this if we're not in the middle
            * of processing a TLP.
@@ -436,85 +435,80 @@ tlp_process_result_t fpga_process_tlp (tlp_process_state *context,
     }
 
     while (1) {
-      if (tlp_process_state == STATE_STATUS) {
-        tlp_dword_index = 0;
-        current_status_field = 0;
-        while (*context->p == 0x55556666 &&
-               context->p < context->e) {
-          context->p++;
+      if (c->state == STATE_STATUS) {
+        c->status_index = 0;
+        while (*c->p == 0x55556666 &&
+               c->p < c->e) {
+          c->p++;
         }
 
-        if (context->p == context->e) {
+        if (c->p == c->e) {
           break;
         }
 
-        hex_dump ((void *) context->p, 4 * (context->e - context->p), 16);
-        status_field = *context->p++;
-        if ((status_field & 0xf0000000) != 0xe0000000) {
-          fprintf (stderr, "STATUS -> OUT_OF_SYNC\n");
+        c->status_field = *c->p++;
+        if ((c->status_field & 0xf0000000) != 0xe0000000) {
           return TLP_OUT_OF_SYNC;
         } else {
-          tlp_process_state = STATE_DATA;
-          fprintf (stderr, "STATUS 0x%x -> DATA\n", status_field);
+            c->state = STATE_DATA;
         }
-      } else if (tlp_process_state == STATE_DATA) {
-        fprintf (stderr, "DATA %u, status_field 0x%x\n", current_status_field, status_field);
-        if (current_status_field == 7) {
-          fprintf (stderr, "DATA -> CORRUPT\n");
-          return TLP_CORRUPT;
+      } else if (c->state == STATE_DATA) {
+        if (c->status_index == 7) {
+          c->state = STATE_STATUS;
+          continue;
         }
 
-        if (context->p == context->e) {
+        if (c->p == c->e) {
           break;
         }
 
-        current_status_field++;
-        if ((status_field & 0x03) == 0x00) {
+        c->status_index++;
+        if ((c->status_field & 0x03) == 0x00) {
           /*
            * PCIe TLP.
            */
-          tlp_dwords[tlp_dword_index++] = *context->p++;
+          tlp_dwords[tlp_dword_index++] = *c->p++;
         }
-        if ((status_field & 0x07) == 0x04) {
+        if ((c->status_field & 0x07) == 0x04) {
           /*
            * PCIe TLP and LAST.
            */
-          tlp_process_state = STATE_REM;
-          fprintf (stderr, "DATA -> REM\n");
+          c->state = STATE_TLP_COMPLETE;
+        }
+
+        c->status_field >>= 4;
+      } else if (c->state == STATE_REM) {
+        if (c->status_index == 7) {
+          c->state = STATE_STATUS;
           continue;
         }
 
-        status_field >>= 4;
-      } else if (tlp_process_state == STATE_REM) {
-        if (current_status_field == 7) {
-          tlp_process_state = STATE_TLP_COMPLETE;
-          fprintf (stderr, "REM -> COMPLETE\n");
-          continue;
-        }
-
-        if (context->p == context->e) {
+        if (c->p == c->e) {
           break;
         }
 
-        context->p++;
-        current_status_field++;
-      } else if (tlp_process_state == STATE_TLP_COMPLETE) {
+        c->p++;
+        c->status_index++;
+        c->status_field >>= 4;
+      } else if (c->state == STATE_TLP_COMPLETE) {
+        if ((c->status_field & 0x03) == 0) {
+          c->state = STATE_DATA;
+        } else {
+          c->state = STATE_REM;
+        }
+
         if (tlp_dword_index >= 3 &&
             tlp_dword_index <= TLP_RX_MAX_SIZE_IN_DWORDS) {
           *tlp_data = tlp_dwords;
           *tlp_size = tlp_dword_index << 2;
-          fprintf (stderr, "COMPLETE ->\n");
           return TLP_COMPLETE;
         }
 
-        fprintf (stderr, "tlp_dword_index is 0x%x\n", tlp_dword_index);
-        fprintf (stderr, "COMPLETE -> CORRUPT\n");
         return TLP_CORRUPT;
       }
     }
   }
 
-  fprintf (stderr, "STATUS -> NO_DATA\n");
   return TLP_NO_DATA;
 }
 
@@ -682,7 +676,7 @@ int main (int argc, char **argv)
   in_port_t remote_port;
   int socket_fd;
   struct sockaddr_in sa;
-  tlp_process_state context;
+  tlp_process_context context;
 
   device_index = 0;
   remote_addr = "127.0.0.1";
@@ -758,7 +752,7 @@ int main (int argc, char **argv)
     return -1;
   }
 
-  context.p = context.e = NULL;
+  memset (&context, 0, sizeof (context));
   while (1) {
     void *tlp_data;
     uint32_t tlp_size;
