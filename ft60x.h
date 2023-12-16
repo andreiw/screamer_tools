@@ -1,3 +1,10 @@
+/*
+ * Based on:
+ * - https://github.com/ufrisk/LeechCore-plugins/tree/master/leechcore_ft601_driver_linux (GPLv3)
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
 #pragma once
 
 #define FTDI_VENDOR_ID               0x0403
