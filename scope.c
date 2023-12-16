@@ -7,14 +7,15 @@
 #include "screamer.h"
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <errno.h>
 
 static bool verbose;
 
-static int parse_opts (int argc, char **argv,
-                       unsigned long *device_index,
-                       char **remote_ip,
-                       in_port_t *remote_port)
+static int
+parse_opts(int argc,
+           char **argv,
+           unsigned long *device_index,
+           char **remote_ip,
+           in_port_t *remote_port)
 {
   int opt;
 
@@ -43,7 +44,9 @@ static int parse_opts (int argc, char **argv,
   return 0;
 }
 
-int main (int argc, char **argv)
+int
+main (int argc,
+      char **argv)
 {
   int err;
   unsigned long device_index;

@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <errno.h>
 #include "ft60x.h"
 
 #define MS_TO_US(x) ((x) * 1000)
