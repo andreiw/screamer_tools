@@ -1,0 +1,35 @@
+## @file
+#  SAC HelloWorld.
+#
+#  Copyright (c) 2008 - 2018, Intel Corporation. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = HelloWorld
+  FILE_GUID                      = 6987936E-ED34-44db-AE97-1FA5E4ED2116
+  MODULE_TYPE                    = UEFI_APPLICATION
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = UefiMain
+
+[Sources]
+  HelloWorld.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
+  SacPkg/SacPkg.dec
+
+[LibraryClasses]
+  UefiApplicationEntryPoint
+  UefiLib
+
+[FeaturePcd]
+
+[Pcd]
+
+[Protocols]
+  gEfiPciIoProtocolGuid

@@ -1,0 +1,17 @@
+## @file
+#  SacPkg.
+#
+#  Copyright (C) 2023 Andrei Warkentinx. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  DEC_SPECIFICATION              = 0x00010005
+  PACKAGE_NAME                   = SacPkg
+  PACKAGE_GUID                   = 1E73767F-8F52-4603-AEB4-F29B51123123
+  PACKAGE_VERSION                = 1.00
+
+[Includes]
+
