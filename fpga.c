@@ -268,8 +268,8 @@ fpga_config_read (uint16_t address,
   return err;
 }
 
-tlp_process_result_t
-fpga_process_tlp (tlp_process_context *c,
+tlp_receive_result_t
+fpga_receive_tlp (tlp_receive_context *c,
                   void **tlp_data,
                   uint32_t *tlp_size)
 {
@@ -395,7 +395,7 @@ fpga_process_tlp (tlp_process_context *c,
           return TLP_COMPLETE;
         }
 
-        fprintf (stderr, "Disagreement on TLP size (header -> %u dw, ctual -> %u dw\n",
+        fprintf (stderr, "Disagreement on TLP size (header -> %u dw, actual -> %u dw\n",
                 tlp_dword_count, tlp_dword_index);
         return TLP_CORRUPT;
       }

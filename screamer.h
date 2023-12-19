@@ -57,22 +57,22 @@ typedef enum {
   STATE_DATA,
   STATE_REM,
   STATE_TLP_COMPLETE,
-} tlp_process_state_t;
+} tlp_receive_state_t;
 
 typedef enum {
   TLP_NO_DATA,
   TLP_OUT_OF_SYNC,
   TLP_COMPLETE,
   TLP_CORRUPT,
-} tlp_process_result_t;
+} tlp_receive_result_t;
 
 typedef struct {
   uint32_t *p;
   uint32_t *e;
-  tlp_process_state_t state;
+  tlp_receive_state_t state;
   uint32_t status_field;
   int status_index;
-} tlp_process_context;
+} tlp_receive_context;
 
 #define TLP_MRd32       0x00
 #define TLP_MRd64       0x20
@@ -127,6 +127,17 @@ typedef struct {
   uint8_t bus_num;
 } tlp_cfg_t;
 
+typedef struct {
+  uint16_t byte_count : 12;
+  uint16_t bcm : 1;
+  uint16_t status : 3;
+  uint16_t completer_id;
+  uint8_t lower_address : 7;
+  uint8_t r1 : 1;
+  uint8_t tag;
+  uint16_t requester_id;
+} tlp_cpl_t;
+
 typedef union {
   tlp_header_t header;
   tlp_cfg_t cfg;
@@ -155,8 +166,8 @@ int
 tlp_packet_len_dws (uint32_t raw_leader,
                     int *payload_len_dws);
 
-tlp_process_result_t
-fpga_process_tlp (tlp_process_context *c,
+tlp_receive_result_t
+fpga_receive_tlp (tlp_receive_context *c,
                   void **tlp_data,
                   uint32_t *tlp_size);
 

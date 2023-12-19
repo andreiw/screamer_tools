@@ -54,7 +54,7 @@ main (int argc,
   in_port_t remote_port;
   int socket_fd;
   struct sockaddr_in sa;
-  tlp_process_context context;
+  tlp_receive_context context;
 
   device_index = 0;
   remote_addr = "127.0.0.1";
@@ -93,9 +93,9 @@ main (int argc,
   while (1) {
     void *tlp_data;
     uint32_t tlp_size;
-    tlp_process_result_t state;
+    tlp_receive_result_t state;
 
-    state = fpga_process_tlp (&context, &tlp_data, &tlp_size);
+    state = fpga_receive_tlp (&context, &tlp_data, &tlp_size);
     if (state == TLP_OUT_OF_SYNC) {
       fprintf (stderr, "Missing header\n");
     } else if (state == TLP_CORRUPT) {

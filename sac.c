@@ -90,7 +90,7 @@ main (int argc,
 {
   int err;
   unsigned long device_index;
-  tlp_process_context context;
+  tlp_receive_context context;
 
   device_index = 0;
   err = parse_opts (argc, argv, &device_index);
@@ -116,12 +116,12 @@ main (int argc,
   while (1) {
     tlp_t tlp;
     void *tlp_data;
-    uint8_t *payload;
     uint32_t tlp_size;
-    tlp_process_result_t state;
+    uint8_t *payload;
+    tlp_receive_result_t state;
     int payload_len_dws = 0;
 
-    state = fpga_process_tlp (&context, &tlp_data, &tlp_size);
+    state = fpga_receive_tlp (&context, &tlp_data, &tlp_size);
     if (state != TLP_COMPLETE) {
       continue;
     }
