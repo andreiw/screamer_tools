@@ -236,7 +236,7 @@ fpga_config_read (uint16_t address,
         continue;
       }
 
-      cur_addr = bswap_16 ((uint16_t) data_field);
+      cur_addr = be16toh ((uint16_t) data_field);
       cur_addr -= (flags & 0xC000) + address;
       if (cur_addr == 0xffff) {
         /*
@@ -348,12 +348,14 @@ fpga_process_tlp (tlp_process_context *c,
           tlp_dwords[tlp_dword_index] = *c->p++;
 
           if (!tlp_header_seen) {
+            uint32_t len_dw;
             uint32_t dw = tlp_dwords[tlp_dword_index];
-            if (tlp_dw_is_prefix (dw)) {
-              tlp_dword_count++;
-            } else {
+
+            len_dw = tlp_packet_len_dws (dw, NULL);
+            tlp_dword_count += len_dw;
+
+            if (len_dw > 1) {
               tlp_header_seen = true;
-              tlp_dword_count += tlp_header_count (dw);
             }
           }
           tlp_dword_index++;

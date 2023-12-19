@@ -16,87 +16,43 @@ tlp_dw_is_prefix (uint32_t dw)
   return false;
 }
 
-bool
-tlp_is_cw0 (void *tlp_data, void **header)
-{
-  uint32_t *d;
-  uint8_t dw0;
-  uint8_t fmt;
-  uint8_t type;
-
-  d = tlp_data;
-  while (tlp_dw_is_prefix (*d)) {
-    d++;
-  }
-
-  dw0 = (uint8_t) *d;
-  fmt = dw0 >> 5;
-  type = dw0 & 0x1f;
-
-  if (fmt == 2 && type == 0x4) {
-    *header = d;
-    return true;
-  }
-
-  return false;
-}
-
 unsigned
-tlp_cfg_reg (void *tlp_header)
+tlp_cfg_reg (tlp_cfg_t *cfg)
 {
-  unsigned reg;
-  uint32_t dw0;
-  uint8_t *db;
-
-  dw0 = ((uint32_t *) tlp_header)[2];
-  db = (void *) &dw0;
-  reg = db[3] | ((int) (db[2] & 0xf)) << 8;
-
-  return reg;
-}
-
-uint32_t
-tlp_cfg_be (void *tlp_header)
-{
-  uint32_t dw1;
-  uint8_t *db;
-
-  dw1 = ((uint32_t *) tlp_header)[1];
-  db = (void *) &dw1;
-
-  return db[3] & 0xf;
-}
-
-uint32_t
-tlp_cfg_data (void *tlp_header)
-{
-  return ((uint32_t *) tlp_header)[3];
+  return ((unsigned) cfg->ext_reg_num << 8) +
+    ((unsigned) cfg->reg_num << 2);
 }
 
 int
-tlp_header_count (uint32_t dw)
+tlp_packet_len_dws (uint32_t raw_leader,
+                    int *payload_len_dws)
 {
-  int count;
-  uint8_t *db;
-  uint8_t fmt;
   int len;
-  int digest;
+  int count;
+  tlp_header_t tlp_header;
 
-  db = (void *) &dw;
-  fmt = (db[0] >> 5) & 3;
-  len = db[3] | ((int) (db[2] & 0x3)) << 8;
-  digest = db[2] >> 7;
+  tlp_header.dw = be32toh (raw_leader);
+  if (tlp_header._fmt == 4) {
+    /*
+     * Prefix, which we ignore here.
+     */
+    return 1;
+  }
 
+  count = 0;
+  len = tlp_header._length;
   if (len == 0) {
     len = 0x400;
   }
 
-  switch (fmt) {
+  switch (tlp_header._fmt) {
   case 0:
     count = 3;
+    assert (len == 0);
     break;
   case 1:
     count = 4;
+    assert (len == 0);
     break;
   case 2:
     count = 3 + len;
@@ -105,5 +61,36 @@ tlp_header_count (uint32_t dw)
     count = 4 + len;
   }
 
-  return count + digest;
+  if (payload_len_dws != NULL) {
+    *payload_len_dws = len;
+  }
+
+  return count + tlp_header._td;
+}
+
+void *
+tlp_packet_to_host (void *data,
+                    tlp_t *tlp,
+                    int *payload_len_dws)
+{
+  int i;
+  int len_dws;
+  uint32_t *s = data;
+  uint32_t *d = (void *) tlp;
+
+  *payload_len_dws = 0;
+  while ((len_dws =
+          tlp_packet_len_dws (*s, payload_len_dws)) == 1) {
+    s++;
+  }
+
+  /*
+   * s now points to the TLP header raw data.
+   */
+  len_dws -= *payload_len_dws;
+  for (i = 0; i < len_dws; i++) {
+    *d++ = be32toh (*s++);
+  }
+
+  return s;
 }

@@ -114,21 +114,37 @@ main (int argc,
 
   memset (&context, 0, sizeof (context));
   while (1) {
+    tlp_t tlp;
     void *tlp_data;
+    uint8_t *payload;
     uint32_t tlp_size;
-    void *header;
     tlp_process_result_t state;
+    int payload_len_dws = 0;
 
     state = fpga_process_tlp (&context, &tlp_data, &tlp_size);
     if (state != TLP_COMPLETE) {
       continue;
     }
 
-    if (tlp_is_cw0 (tlp_data, &header) &&
-        tlp_cfg_reg (header) == 0x200 &&
-        (tlp_cfg_be (header) & 0x1) != 0) {
-      putchar (tlp_cfg_data (header) & 0xff);
+    payload = tlp_packet_to_host (tlp_data, &tlp,
+                                  &payload_len_dws);
+    if (tlp.header._fmt_type != TLP_CfgWr0) {
+      continue;
     }
+    if (tlp.cfg.last_be != 0 ||
+        (tlp.cfg.first_be & 0x1) != 0x1) {
+      continue;
+    }
+
+    if (tlp_cfg_reg (&tlp.cfg) != 0x200) {
+      continue;
+    }
+
+    if (payload_len_dws != 1) {
+      continue;
+    }
+
+    putchar (*payload);
   }
 
   return 0;
