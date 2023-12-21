@@ -95,7 +95,7 @@ main (int argc,
     uint32_t tlp_size;
     tlp_receive_result_t state;
 
-    state = fpga_receive_tlp (&context, &tlp_data, &tlp_size);
+    state = fpga_tlp_receive (&context, &tlp_data, &tlp_size);
     if (state == TLP_OUT_OF_SYNC) {
       fprintf (stderr, "Missing header\n");
     } else if (state == TLP_CORRUPT) {

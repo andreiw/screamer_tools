@@ -92,28 +92,28 @@ typedef struct {
 #define TLP_CplDLk      0x4B
 
 typedef union {
-  uint32_t dw;
+  uint32_t _dw;
   struct {
-    uint16_t _length : 10;
-    uint16_t _at : 2;
-    uint16_t _attr : 2;
-    uint16_t _ep : 1;
-    uint16_t _td : 1;
-    uint8_t _r1 : 4;
-    uint8_t _tc : 3;
-    uint8_t _r2 : 1;
+    uint16_t length : 10;
+    uint16_t at : 2;
+    uint16_t attr : 2;
+    uint16_t ep : 1;
+    uint16_t td : 1;
+    uint8_t r1 : 4;
+    uint8_t tc : 3;
+    uint8_t r2 : 1;
     union {
       uint8_t _fmt_type;
       struct {
-        uint8_t _type : 5;
-        uint8_t _fmt : 3;
+        uint8_t type : 5;
+        uint8_t fmt : 3;
       };
     };
   };
 } tlp_header_t;
 
 typedef struct {
-  tlp_header_t tlp_header;
+  tlp_header_t hdr;
   uint8_t first_be : 4;
   uint8_t last_be : 4;
   uint8_t tag;
@@ -128,6 +128,7 @@ typedef struct {
 } tlp_cfg_t;
 
 typedef struct {
+  tlp_header_t hdr;
   uint16_t byte_count : 12;
   uint16_t bcm : 1;
   uint16_t status : 3;
@@ -139,13 +140,18 @@ typedef struct {
 } tlp_cpl_t;
 
 typedef union {
-  tlp_header_t header;
+  tlp_header_t hdr;
   tlp_cfg_t cfg;
+  tlp_cpl_t cpl;
 } tlp_t;
 
 _Static_assert (sizeof (tlp_header_t) == sizeof (uint32_t),
                 "sizeof (tlp_header)");
 
+
+int
+tlp_hdr_len_dws (tlp_header_t *tlp_header,
+                 int *payload_len_dws);
 
 int
 tlp_packet_len_dws (uint32_t raw_leader,
@@ -156,20 +162,26 @@ tlp_packet_to_host (void *data,
                     tlp_t *tlp,
                     int *payload_len_dws);
 
+void *
+tlp_host_to_packet (tlp_t *tlp,
+                    void *out,
+                    int out_size);
+
 unsigned
 tlp_cfg_reg (tlp_cfg_t *cfg);
 
 bool
 tlp_dw_is_prefix (uint32_t dw);
 
-int
-tlp_packet_len_dws (uint32_t raw_leader,
-                    int *payload_len_dws);
 
 tlp_receive_result_t
-fpga_receive_tlp (tlp_receive_context *c,
+fpga_tlp_receive (tlp_receive_context *c,
                   void **tlp_data,
                   uint32_t *tlp_size);
+
+int
+fpga_tlp_send (void *tlp_data,
+               uint32_t tlp_size);
 
 void hex_dump(uint8_t *buffer,
               int num_bytes,

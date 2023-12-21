@@ -9,6 +9,7 @@
  * - sketchy buffer handling in fpga_config_read
  *   (0x400 should be enough, or just reuse the
  *   global data buffer).
+ * - unify TLP RX with config_read.
  * - BAR enable.
  */
 
@@ -27,8 +28,11 @@
 #define TLP_RX_MAX_SIZE             (16+1024)
 #define TLP_RX_MAX_SIZE_IN_DWORDS   ((int) (TLP_RX_MAX_SIZE / sizeof (uint32_t)))
 
-static uint8_t data[TLP_RX_MAX_SIZE];
-static uint32_t tlp_dwords[TLP_RX_MAX_SIZE_IN_DWORDS];
+static uint8_t rx_data[TLP_RX_MAX_SIZE];
+static uint32_t rx_tlp_dwords[TLP_RX_MAX_SIZE_IN_DWORDS];
+
+#define TLP_TX_MAX_SIZE             (4 * 4 + 128)
+static uint32_t tx_data[TLP_TX_MAX_SIZE * 2];
 
 int
 fpga_init (void)
@@ -268,8 +272,44 @@ fpga_config_read (uint16_t address,
   return err;
 }
 
+int
+fpga_tlp_send (void *tlp_data,
+               uint32_t tlp_size)
+{
+  int err;
+  uint32_t i;
+  uint32_t s_len;
+  int d_len;
+  uint32_t *s;
+  uint32_t *d;
+  /*
+   * TLP data must well-formed - aligned  to 4 bytes.
+   */
+  assert ((tlp_size & 0x3) == 0);
+  assert (tlp_size <= TLP_TX_MAX_SIZE);
+  assert (tlp_size > 0);
+
+  s = tlp_data;
+  s_len = tlp_size / sizeof (uint32_t);
+  d = tx_data;
+  for (d_len = 0, i = 0; i < s_len; i++) {
+    d[d_len++] = s[i];
+    d[d_len++] = 0x77000000;
+  }
+
+  assert (d[d_len - 1] == 0x77000000);
+  /*
+   * TX TLP VALID LAST.
+   */
+  d[d_len - 1] = 0x77040000;
+
+  err = ftdi_write (d, d_len * sizeof (uint32_t),
+                    &d_len);
+  return err;
+}
+
 tlp_receive_result_t
-fpga_receive_tlp (tlp_receive_context *c,
+fpga_tlp_receive (tlp_receive_context *c,
                   void **tlp_data,
                   uint32_t *tlp_size)
 {
@@ -287,7 +327,8 @@ fpga_receive_tlp (tlp_receive_context *c,
       int transferred;
 
       transferred = 0;
-      err = ftdi_read (data, sizeof (data), &transferred);
+      err = ftdi_read (rx_data,
+                       sizeof (rx_data), &transferred);
       if (err != 0) {
         continue;
       }
@@ -296,7 +337,7 @@ fpga_receive_tlp (tlp_receive_context *c,
       }
       transferred /= sizeof (uint32_t);
 
-      c->p = (void *) data;
+      c->p = (void *) rx_data;
       c->e = c->p + transferred;
 
       if (c->p == c->e) {
@@ -345,11 +386,11 @@ fpga_receive_tlp (tlp_receive_context *c,
           /*
            * PCIe TLP.
            */
-          tlp_dwords[tlp_dword_index] = *c->p++;
+          rx_tlp_dwords[tlp_dword_index] = *c->p++;
 
           if (!tlp_header_seen) {
             uint32_t len_dw;
-            uint32_t dw = tlp_dwords[tlp_dword_index];
+            uint32_t dw = rx_tlp_dwords[tlp_dword_index];
 
             len_dw = tlp_packet_len_dws (dw, NULL);
             tlp_dword_count += len_dw;
@@ -390,7 +431,7 @@ fpga_receive_tlp (tlp_receive_context *c,
         }
 
         if (tlp_dword_index == tlp_dword_count) {
-          *tlp_data = tlp_dwords;
+          *tlp_data = rx_tlp_dwords;
           *tlp_size = tlp_dword_index << 2;
           return TLP_COMPLETE;
         }
