@@ -291,6 +291,7 @@ fpga_tlp_send (void *tlp_data,
 
   s = tlp_data;
   s_len = tlp_size / sizeof (uint32_t);
+
   d = tx_data;
   for (d_len = 0, i = 0; i < s_len; i++) {
     d[d_len++] = s[i];

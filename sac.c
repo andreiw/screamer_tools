@@ -154,8 +154,9 @@ main (int argc,
     tlp_t cpl_tlp;
     void *rx_tlp_data;
     uint32_t rx_tlp_size;
-    uint8_t tx_tlp_data[sizeof (tlp_cpl_t)];
-    uint8_t *payload;
+    uint8_t tx_tlp_data[sizeof (tlp_cpl_t) + sizeof(uint32_t)];
+    uint32_t tx_tlp_size;
+    uint32_t *payload;
     tlp_receive_result_t state;
     int payload_len_dws = 0;
 
@@ -182,37 +183,53 @@ main (int argc,
       }
     }
 
-    if (tlp.hdr._fmt_type == TLP_CfgWr0 &&
-        tlp.cfg.last_be == 0 &&
-        (tlp.cfg.first_be & 0x1) == 0x1 &&
-        tlp_cfg_reg (&tlp.cfg) == 0x200 &&
-        payload_len_dws == 1) {
-
-      putchar (*payload);
-
-      cpl_tlp.cpl.byte_count =
-        payload_len_dws * sizeof (uint32_t);
-      cpl_tlp.cpl.completer_id =
-        ((uint16_t) tlp.cfg.bus_num) << 8 |
-        ((uint16_t) tlp.cfg.device_num << 3) |
-        ((uint16_t) tlp.cfg.function_num);
+    if ((tlp.hdr._fmt_type == TLP_CfgWr0 ||
+         tlp.hdr._fmt_type == TLP_CfgRd0)) {
+      cpl_tlp.cpl._cid = tlp.cfg._cid;
       cpl_tlp.cpl.tag = tlp.cfg.tag;
-      cpl_tlp.cpl.requester_id = tlp.cfg.requester_id;
+      cpl_tlp.cpl._rid = tlp.cfg._rid;
+      cpl_tlp.cpl.byte_count = 4;
+      tx_tlp_size = sizeof (tlp_cpl_t);
 
-      tlp_host_to_packet (&cpl_tlp, &tx_tlp_data,
-                          sizeof (tx_tlp_data));
+      if (tlp.cfg.last_be != 0 ||
+          (tlp.cfg.first_be & 0x1) != 1 ||
+          tlp_cfg_reg (&tlp.cfg) != 0x200) {
+        cpl_tlp.cpl.status = TLP_CPL_STATUS_UR;
+
+        tlp_host_to_packet (&cpl_tlp, &tx_tlp_data,
+                            tx_tlp_size);
+      } else {
+        if (tlp.hdr._fmt_type == TLP_CfgWr0 &&
+            payload_len_dws == 1) {
+
+          putchar ((uint8_t) *payload);
+
+          tlp_host_to_packet (&cpl_tlp, &tx_tlp_data,
+                              tx_tlp_size);
+        } else if (tlp.hdr._fmt_type == TLP_CfgRd0 &&
+                   payload_len_dws == 0) {
+
+          cpl_tlp.hdr._fmt_type = TLP_CplD;
+          cpl_tlp.hdr.length = 1;
+
+          tx_tlp_size += 4;
+          payload = tlp_host_to_packet (&cpl_tlp, &tx_tlp_data,
+                                        tx_tlp_size);
+          *payload = 0xffffff00 | getchar();
+        }
+      }
 
       if (remote_dump) {
-        err = sendto(socket_fd, tx_tlp_data, sizeof (tx_tlp_data),
-                     0, (struct sockaddr *) &sa,
+        err = sendto(socket_fd, tx_tlp_data,
+                     tx_tlp_size, 0,
+                     (struct sockaddr *) &sa,
                      sizeof (sa));
         if (err < 0)  {
           fprintf (stderr, "sendto: %s\n", strerror (errno));
         }
       }
 
-      if (fpga_tlp_send (tx_tlp_data,
-                         sizeof (tx_tlp_data)) != 0) {
+      if (fpga_tlp_send (tx_tlp_data, tx_tlp_size) != 0) {
         fprintf (stderr, "Failed to send completion\n");
       }
     }

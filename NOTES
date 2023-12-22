@@ -1,0 +1,41 @@
+There is a pcilieech Discord channel also: https://discord.gg/BCmfBhDPXX
+
+From https://github.com/ufrisk/pcileech-fpga/issues/153:
+
+The LeechCore protocol is 8 DWORDs long. 1 status DWORD and 7 data DWORDS.
+the 4 hi-bits are set to 'E'
+then there are 4 status bits for each data DWORD. The two high-bits are context dependent, the low two bits tell which type of data there is:
+00 = TLP
+01 = PCIe CFG
+10 = Loopback
+11 = Internal CFG
+
+https://github.com/ufrisk/pcileech-fpga/issues/152:
+
+Maybe take a look at UR_INV_REQ, UR_CFG1 and UR_ATOMIC.
+
+- MRd works:
+
+ else if (tlp.hdr._fmt_type == TLP_MRd32) {
+      fprintf (stderr, "MRd32 to addy 0x%x\n", tlp.mrd32.address);
+
+      cpl_tlp.hdr._fmt_type = TLP_CplD;
+      cpl_tlp.hdr.length = 1;
+      cpl_tlp.cpl.byte_count = 4;
+      cpl_tlp.cpl._cid = 0x100;
+      cpl_tlp.cpl.lower_address = 0;
+      cpl_tlp.cpl.tag = tlp.mrd32.tag;
+      cpl_tlp.cpl._rid = tlp.mrd32._rid;
+
+      fprintf(stderr, "send cpld from cid 0x%x to rid 0x%x tag 0x%x\n",
+              cpl_tlp.cpl._cid, cpl_tlp.cpl._rid, cpl_tlp.cpl.tag);
+
+      *(uint32_t *)
+        tlp_host_to_packet (&cpl_tlp, &tx_tlp_data,
+                            sizeof (tlp_cpl_t)) = 0xAABBCCDD;
+
+      if (fpga_tlp_send (tx_tlp_data,
+                         sizeof (tlp_cpl_t) + 4) != 0) {
+        fprintf (stderr, "Failed to send completion\n");
+      }
+    }

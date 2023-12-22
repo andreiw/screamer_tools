@@ -117,32 +117,78 @@ typedef struct {
   uint8_t first_be : 4;
   uint8_t last_be : 4;
   uint8_t tag;
-  uint16_t requester_id;
+  union {
+    uint16_t _rid;
+    struct {
+      uint8_t rid_fn : 3;
+      uint8_t rid_dev : 5;
+      uint8_t rid_bus;
+    };
+  };
   uint8_t r1 : 2;
   uint8_t reg_num : 6;
   uint8_t ext_reg_num : 4;
   uint8_t r2 : 4;
-  uint8_t function_num : 3;
-  uint8_t device_num : 3;
-  uint8_t bus_num;
+  union {
+    uint16_t _cid;
+    struct {
+      uint8_t cid_fn : 3;
+      uint8_t cid_dev : 5;
+      uint8_t cid_bus;
+    };
+  };
 } tlp_cfg_t;
+
+typedef struct {
+  tlp_header_t hdr;
+  uint8_t first_be : 4;
+  uint8_t last_be : 4;
+  uint8_t tag;
+  union {
+    uint16_t _rid;
+    struct {
+      uint8_t rid_fn : 3;
+      uint8_t rid_dev : 5;
+      uint8_t rid_bus;
+    };
+  };
+  uint32_t address;
+} tlp_mrd32_t;
 
 typedef struct {
   tlp_header_t hdr;
   uint16_t byte_count : 12;
   uint16_t bcm : 1;
+#define TLP_CPL_STATUS_SC 0
+#define TLP_CPL_STATUS_UR 1
+#define TLP_CPL_STATUS_CA 4
   uint16_t status : 3;
-  uint16_t completer_id;
+  union {
+    uint16_t _cid;
+    struct {
+      uint8_t cid_fn : 3;
+      uint8_t cid_dev : 5;
+      uint8_t cid_bus;
+    };
+  };
   uint8_t lower_address : 7;
   uint8_t r1 : 1;
   uint8_t tag;
-  uint16_t requester_id;
+  union {
+    uint16_t _rid;
+    struct {
+      uint8_t rid_fn : 3;
+      uint8_t rid_dev : 5;
+      uint8_t rid_bus;
+    };
+  };
 } tlp_cpl_t;
 
 typedef union {
   tlp_header_t hdr;
-  tlp_cfg_t cfg;
-  tlp_cpl_t cpl;
+  tlp_cfg_t    cfg;
+  tlp_cpl_t    cpl;
+  tlp_mrd32_t  mrd32;
 } tlp_t;
 
 _Static_assert (sizeof (tlp_header_t) == sizeof (uint32_t),
