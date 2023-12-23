@@ -1,0 +1,48 @@
+## @file
+#  SAC Driver.
+#
+#  Copyright (C) 2023 Andrei Warkentin. All rights reserved.<BR>
+#
+#  SPDX-License-Identifier: BSD-2-Clause-Patent
+#
+##
+
+[Defines]
+  INF_VERSION                    = 0x00010005
+  BASE_NAME                      = SacDxe
+  FILE_GUID                      = 6696936D-3637-467C-87CB-14EA82DDDDDD
+  MODULE_TYPE                    = DXE_DRIVER
+  VERSION_STRING                 = 1.0
+  ENTRY_POINT                    = EntryPoint
+
+[Sources.common]
+  SacDxe.c
+  ComponentName.c
+  SimpleTextIn.c
+  SimpleTextOut.c
+
+[Packages]
+  MdePkg/MdePkg.dec
+  SacPkg/SacPkg.dec
+
+[LibraryClasses]
+  BaseLib
+  MemoryAllocationLib
+  UefiLib
+  UefiBootServicesTableLib
+  BaseMemoryLib
+  DebugLib
+  UefiDriverEntryPoint
+
+[Guids]
+
+[Protocols]
+  gEfiSimpleTextInProtocolGuid
+  gEfiSimpleTextOutProtocolGuid
+  gEfiDevicePathProtocolGuid
+  gEfiPciIoProtocolGuid
+
+[FixedPcd]
+
+[Depex]
+  TRUE

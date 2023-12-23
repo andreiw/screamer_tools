@@ -30,7 +30,7 @@
   #
   BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
   BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
-  PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
+  PrintLib|MxdePkg/Library/BasePrintLib/BasePrintLib.inf
   #
   # UEFI & PI
   #
@@ -50,5 +50,9 @@
 [LibraryClasses.common.UEFI_APPLICATION]
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
 
+[LibraryClasses.common.DXE_DRIVER]
+  MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
+
 [Components]
+  SacPkg/Drivers/SacDxe/SacDxe.inf
   SacPkg/Application/HelloWorld/HelloWorld.inf
