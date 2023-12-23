@@ -8,8 +8,6 @@
  */
 
 #include "screamer.h"
-#include <sys/socket.h>
-#include <arpa/inet.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -107,10 +105,8 @@ main (int argc,
   int err;
   unsigned long device_index;
   tlp_receive_context context;
-  int socket_fd;
   char *remote_addr;
   in_port_t remote_port;
-  struct sockaddr_in sa;
 
   device_index = 0;
   remote_addr = "127.0.0.1";
@@ -121,17 +117,12 @@ main (int argc,
     return -1;
   };
 
-  socket_fd = -1;
   if (remote_dump) {
-    socket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (socket_fd < 0) {
-      fprintf(stderr, "socket: %s\n", strerror (errno));
+    err = net_dump_init (remote_addr, remote_port);
+    if (err < 0) {
+      fprintf(stderr, "net_dump_init: %s\n", strerror (errno));
       return -1;
     }
-
-    sa.sin_family = AF_INET;
-    sa.sin_port = htons(remote_port);
-    sa.sin_addr.s_addr = inet_addr(remote_addr);
   }
 
   err = ftdi_get (device_index);
@@ -163,6 +154,16 @@ main (int argc,
     state = fpga_tlp_receive (&context, &rx_tlp_data,
                               &rx_tlp_size);
     if (state != TLP_COMPLETE) {
+      if (state == TLP_CORRUPT) {
+        if (verbose) {
+          fprintf (stderr, "Corrupt TLP received\n");
+        }
+        net_dump (rx_tlp_data, rx_tlp_size);
+      } else if (state == TLP_OUT_OF_SYNC) {
+        if (verbose) {
+          fprintf (stderr, "FPGA out of sync\n");
+        }
+      }
       continue;
     }
 
@@ -173,15 +174,6 @@ main (int argc,
     cpl_tlp.hdr.attr = tlp.hdr.attr;
     cpl_tlp.hdr.tc = tlp.hdr.tc;
     cpl_tlp.hdr._fmt_type = TLP_Cpl;
-
-    if (remote_dump) {
-      err = sendto(socket_fd, rx_tlp_data, rx_tlp_size,
-                   0, (struct sockaddr *) &sa,
-                   sizeof (sa));
-      if (err < 0)  {
-        fprintf (stderr, "sendto: %s\n", strerror (errno));
-      }
-    }
 
     if ((tlp.hdr._fmt_type == TLP_CfgWr0 ||
          tlp.hdr._fmt_type == TLP_CfgRd0)) {
@@ -216,16 +208,6 @@ main (int argc,
           payload = tlp_host_to_packet (&cpl_tlp, &tx_tlp_data,
                                         tx_tlp_size);
           *payload = 0xffffff00 | getchar();
-        }
-      }
-
-      if (remote_dump) {
-        err = sendto(socket_fd, tx_tlp_data,
-                     tx_tlp_size, 0,
-                     (struct sockaddr *) &sa,
-                     sizeof (sa));
-        if (err < 0)  {
-          fprintf (stderr, "sendto: %s\n", strerror (errno));
         }
       }
 

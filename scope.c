@@ -5,8 +5,6 @@
  */
 
 #include "screamer.h"
-#include <sys/socket.h>
-#include <arpa/inet.h>
 
 static bool verbose;
 
@@ -52,8 +50,6 @@ main (int argc,
   unsigned long device_index;
   char *remote_addr;
   in_port_t remote_port;
-  int socket_fd;
-  struct sockaddr_in sa;
   tlp_receive_context context;
 
   device_index = 0;
@@ -66,16 +62,11 @@ main (int argc,
   };
 
   printf ("UDP server is %s:%u\n", remote_addr, remote_port);
-
-  socket_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  if (socket_fd < 0) {
-    fprintf(stderr, "socket: %s\n", strerror (errno));
+  err = net_dump_init (remote_addr, remote_port);
+  if (err < 0) {
+    fprintf(stderr, "net_dump_init: %s\n", strerror (errno));
     return -1;
   }
-
-  sa.sin_family = AF_INET;
-  sa.sin_port = htons(remote_port);
-  sa.sin_addr.s_addr = inet_addr(remote_addr);
 
   err = ftdi_get (device_index);
   if (err != 0) {
@@ -106,9 +97,7 @@ main (int argc,
         hex_dump (tlp_data, tlp_size, 16);
       }
 
-      err = sendto(socket_fd, tlp_data, tlp_size,
-                   0, (struct sockaddr *) &sa,
-                   sizeof (sa));
+      net_dump (tlp_data, tlp_size);
       if (err < 0)  {
         fprintf (stderr, "sendto: %s\n", strerror (errno));
       }

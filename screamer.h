@@ -11,6 +11,8 @@
 #include <ctype.h>
 #include <errno.h>
 #include <assert.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include "ft60x.h"
 
 #define MS_TO_US(x) ((x) * 1000)
@@ -232,3 +234,11 @@ fpga_tlp_send (void *tlp_data,
 void hex_dump(uint8_t *buffer,
               int num_bytes,
               int line_length);
+
+int
+net_dump_init (char *remote_addr,
+               in_port_t remote_port);
+
+void
+net_dump(void *buffer,
+         int num_bytes);

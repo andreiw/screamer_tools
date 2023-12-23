@@ -378,6 +378,13 @@ fpga_tlp_receive (tlp_receive_context *c,
           continue;
         }
 
+        if (!tlp_header_seen) {
+          while (*c->p == 0x55556666 &&
+                 c->p < c->e) {
+            c->p++;
+          }
+        }
+
         if (c->p == c->e) {
           break;
         }
@@ -434,11 +441,21 @@ fpga_tlp_receive (tlp_receive_context *c,
         if (tlp_dword_index == tlp_dword_count) {
           *tlp_data = rx_tlp_dwords;
           *tlp_size = tlp_dword_index << 2;
+          c->state = STATE_STATUS;
           return TLP_COMPLETE;
         }
 
-        fprintf (stderr, "Disagreement on TLP size (header -> %u dw, actual -> %u dw\n",
+        fprintf (stderr, "Disagreement on TLP size (header -> %u dw, actual -> %u dw)\n",
                 tlp_dword_count, tlp_dword_index);
+        *tlp_data = rx_tlp_dwords;
+        /*
+         * Return the larger amount, the caller
+         * may want to dump it.
+         */
+        *tlp_size = tlp_dword_count > tlp_dword_index ?
+          tlp_dword_count << 2 :
+          tlp_dword_index << 2;
+        c->state = STATE_STATUS;
         return TLP_CORRUPT;
       }
     }
