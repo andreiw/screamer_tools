@@ -1,5 +1,7 @@
 There is a pcilieech Discord channel also: https://discord.gg/BCmfBhDPXX
 
+PCIe IP docs: https://docs.xilinx.com/v/u/en-US/ug477_7Series_IntBlock_PCIe
+
 From https://github.com/ufrisk/pcileech-fpga/issues/153:
 
 The LeechCore protocol is 8 DWORDs long. 1 status DWORD and 7 data DWORDS.
