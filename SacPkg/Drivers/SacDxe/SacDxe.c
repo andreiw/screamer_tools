@@ -68,26 +68,40 @@ SacSupported (
     return Status;
   }
 
-  Status = PciIo->Pci.Read (PciIo, EfiPciIoWidthUint16,
-                            PCI_VENDOR_ID_OFFSET,
-                            1, &Value);
-  if (EFI_ERROR (Status) || Value != 0x10ee) {
-    return EFI_UNSUPPORTED;    
+  Status = PciIo->Pci.Read (
+                        PciIo,
+                        EfiPciIoWidthUint16,
+                        PCI_VENDOR_ID_OFFSET,
+                        1,
+                        &Value
+                        );
+  if (EFI_ERROR (Status) || (Value != 0x10ee)) {
+    return EFI_UNSUPPORTED;
   }
 
-  Status = PciIo->Pci.Read (PciIo, EfiPciIoWidthUint16,
-                            PCI_DEVICE_ID_OFFSET,
-                            1, &Value);
-  if (EFI_ERROR (Status) || Value != 0x0666) {
-    return EFI_UNSUPPORTED;    
+  Status = PciIo->Pci.Read (
+                        PciIo,
+                        EfiPciIoWidthUint16,
+                        PCI_DEVICE_ID_OFFSET,
+                        1,
+                        &Value
+                        );
+  if (EFI_ERROR (Status) || (Value != 0x0666)) {
+    return EFI_UNSUPPORTED;
   }
 
-  Status = PciIo->Pci.Read (PciIo, EfiPciIoWidthUint16,
-                            PCI_SUBSYSTEM_ID_OFFSET,
-                            1, &Value);
-  if (!EFI_ERROR (Status) && Value != 0x4157) {
-    DEBUG ((DEBUG_ERROR,
-            "Stock pcileech firmware, functionality reduced\n"));
+  Status = PciIo->Pci.Read (
+                        PciIo,
+                        EfiPciIoWidthUint16,
+                        PCI_SUBSYSTEM_ID_OFFSET,
+                        1,
+                        &Value
+                        );
+  if (!EFI_ERROR (Status) && (Value != SAC_AW_REVISION)) {
+    DEBUG ((
+      DEBUG_ERROR,
+      "Stock pcileech firmware, functionality reduced\n"
+      ));
   }
 
   return Status;
@@ -101,20 +115,20 @@ SacStart (
   IN EFI_DEVICE_PATH_PROTOCOL     *RemainingDevicePath
   )
 {
-  EFI_STATUS                        Status;
-  EFI_PCI_IO_PROTOCOL               *PciIo;
-  SAC_PRIVATE_DATA                  *Private;
+  EFI_STATUS           Status;
+  EFI_PCI_IO_PROTOCOL  *PciIo;
+  SAC_PRIVATE_DATA     *Private;
 
-  PciIo = NULL;
+  PciIo   = NULL;
   Private = NULL;
-  Status = gBS->OpenProtocol (
-                  Controller,
-                  &gEfiPciIoProtocolGuid,
-                  (VOID **)&PciIo,
-                  This->DriverBindingHandle,
-                  Controller,
-                  EFI_OPEN_PROTOCOL_BY_DRIVER
-                  );
+  Status  = gBS->OpenProtocol (
+                   Controller,
+                   &gEfiPciIoProtocolGuid,
+                   (VOID **)&PciIo,
+                   This->DriverBindingHandle,
+                   Controller,
+                   EFI_OPEN_PROTOCOL_BY_DRIVER
+                   );
   if (EFI_ERROR (Status)) {
     if (Status == EFI_ALREADY_STARTED) {
       return Status;
@@ -128,41 +142,47 @@ SacStart (
   }
 
   Private->Signature = SAC_SIGNATURE;
-  Private->PciIo = PciIo;
+  Private->PciIo     = PciIo;
 
-  Private->SerialIo.Revision = SERIAL_IO_INTERFACE_REVISION;
-  Private->SerialIo.Reset = SacSerialReset;
+  Private->SerialIo.Revision      = SERIAL_IO_INTERFACE_REVISION;
+  Private->SerialIo.Reset         = SacSerialReset;
   Private->SerialIo.SetAttributes = SacSerialSetAttributes;
-  Private->SerialIo.SetControl = SacSerialSetControl;
-  Private->SerialIo.GetControl = SacSerialGetControl;
-  Private->SerialIo.Read = SacSerialRead;
-  Private->SerialIo.Write = SacSerialWrite;
-  Private->SerialIo.Mode = &Private->SerialMode;
+  Private->SerialIo.SetControl    = SacSerialSetControl;
+  Private->SerialIo.GetControl    = SacSerialGetControl;
+  Private->SerialIo.Read          = SacSerialRead;
+  Private->SerialIo.Write         = SacSerialWrite;
+  Private->SerialIo.Mode          = &Private->SerialMode;
 
-  Private->SerialMode.BaudRate = PcdGet64 (PcdUartDefaultBaudRate);
-  Private->SerialMode.DataBits = PcdGet8 (PcdUartDefaultDataBits);
-  Private->SerialMode.Parity = PcdGet8 (PcdUartDefaultParity);
-  Private->SerialMode.StopBits = (UINT32)PcdGet8 (PcdUartDefaultStopBits);
+  Private->SerialMode.BaudRate         = PcdGet64 (PcdUartDefaultBaudRate);
+  Private->SerialMode.DataBits         = PcdGet8 (PcdUartDefaultDataBits);
+  Private->SerialMode.Parity           = PcdGet8 (PcdUartDefaultParity);
+  Private->SerialMode.StopBits         = (UINT32)PcdGet8 (PcdUartDefaultStopBits);
   Private->SerialMode.ReceiveFifoDepth = PcdGet16 (PcdUartDefaultReceiveFifoDepth);
-  Private->SerialMode.Timeout = SERIAL_PORT_DEFAULT_TIMEOUT;
+  Private->SerialMode.Timeout          = SERIAL_PORT_DEFAULT_TIMEOUT;
 
   Status = gBS->InstallMultipleProtocolInterfaces (
-    &Controller,
-    &gEfiSerialIoProtocolGuid,
-    &(Private->SerialIo),
-    NULL
-    );
+                  &Controller,
+                  &gEfiSerialIoProtocolGuid,
+                  &(Private->SerialIo),
+                  NULL
+                  );
 
- out:
+out:
   if (EFI_ERROR (Status)) {
     if (Private != NULL) {
       FreePool (Private);
     }
+
     if (PciIo != NULL) {
-      gBS->CloseProtocol (Controller, &gEfiPciIoProtocolGuid,
-                          This->DriverBindingHandle, Controller);
+      gBS->CloseProtocol (
+             Controller,
+             &gEfiPciIoProtocolGuid,
+             This->DriverBindingHandle,
+             Controller
+             );
     }
   }
+
   return Status;
 }
 
@@ -175,7 +195,7 @@ SacStop (
   IN EFI_HANDLE                   *ChildHandleBuffer
   )
 {
-  EFI_STATUS               Status;
+  EFI_STATUS              Status;
   EFI_SERIAL_IO_PROTOCOL  *SerialIo;
   SAC_PRIVATE_DATA        *Private;
 
@@ -195,17 +215,21 @@ SacStop (
   Private = SAC_PRIVATE_FROM_SIO (This);
 
   Status = gBS->UninstallMultipleProtocolInterfaces (
-    &Controller,
-    &gEfiSerialIoProtocolGuid,
-    &(Private->SerialIo),
-    NULL
-    );
+                  &Controller,
+                  &gEfiSerialIoProtocolGuid,
+                  &(Private->SerialIo),
+                  NULL
+                  );
   if (EFI_ERROR (Status)) {
     return Status;
   }
 
-  gBS->CloseProtocol (Controller, &gEfiPciIoProtocolGuid,
-                      This->DriverBindingHandle, Controller);
+  gBS->CloseProtocol (
+         Controller,
+         &gEfiPciIoProtocolGuid,
+         This->DriverBindingHandle,
+         Controller
+         );
 
   FreePool (Private);
 
@@ -213,17 +237,24 @@ SacStop (
 }
 
 VOID
-SacConWrite (IN  SAC_PRIVATE_DATA *Private,
-             IN  UINT32 CharData)
+SacConWrite (
+  IN  SAC_PRIVATE_DATA  *Private,
+  IN  UINT32            CharData
+  )
 {
-  Private->PciIo->Pci.Write (Private->PciIo,
-                             EfiPciIoWidthUint32,
-                             SAC_CFG_TEXT_IN, 1,
-                             &CharData);
+  Private->PciIo->Pci.Write (
+                        Private->PciIo,
+                        EfiPciIoWidthUint32,
+                        SAC_CFG_TEXT_IN,
+                        1,
+                        &CharData
+                        );
 }
 
 BOOLEAN
-SacConPoll (IN  SAC_PRIVATE_DATA *Private)
+SacConPoll (
+  IN  SAC_PRIVATE_DATA  *Private
+  )
 {
   if (Private->ReadData != 0xffffffff) {
     return TRUE;
@@ -239,24 +270,29 @@ SacConPoll (IN  SAC_PRIVATE_DATA *Private)
 }
 
 UINT32
-SacConRead (IN  SAC_PRIVATE_DATA *Private,
-            IN  BOOLEAN WaitForData)
+SacConRead (
+  IN  SAC_PRIVATE_DATA  *Private,
+  IN  BOOLEAN           WaitForData
+  )
 {
-  UINT32 CharData;
-  EFI_STATUS Status;
+  UINT32      CharData;
+  EFI_STATUS  Status;
 
   if (Private->ReadData != 0xffffffff) {
-    CharData = Private->ReadData;
+    CharData          = Private->ReadData;
     Private->ReadData = 0xffffffff;
     return CharData;
   }
-  
+
   CharData = 0;
   do {
-    Status = Private->PciIo->Pci.Read (Private->PciIo,
-                                       EfiPciIoWidthUint32,
-                                       SAC_CFG_TEXT_IN,
-                                       1, &CharData);
+    Status = Private->PciIo->Pci.Read (
+                                   Private->PciIo,
+                                   EfiPciIoWidthUint32,
+                                   SAC_CFG_TEXT_IN,
+                                   1,
+                                   &CharData
+                                   );
     if (EFI_ERROR (Status)) {
       return 0;
     }
@@ -273,11 +309,11 @@ EntryPoint (
   )
 {
   return EfiLibInstallDriverBindingComponentName2 (
-             ImageHandle,
-             SystemTable,
-             &gSacDriverBinding,
-             ImageHandle,
-             &gSacComponentName,
-             &gSacComponentName2
-             );
+           ImageHandle,
+           SystemTable,
+           &gSacDriverBinding,
+           ImageHandle,
+           &gSacComponentName,
+           &gSacComponentName2
+           );
 }

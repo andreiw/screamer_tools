@@ -1,0 +1,1 @@
+uncrustify -c $WORKSPACE/.pytool/Plugin/UncrustifyCheck/uncrustify.cfg -F - --replace --no-backup --if-changed

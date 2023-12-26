@@ -1,0 +1,2 @@
+D=$(dirname -- "$(readlink -f "${BASH_SOURCE}")")
+${D}/git_ls_for_hash $1 | ${D}/uefi_uncrustify

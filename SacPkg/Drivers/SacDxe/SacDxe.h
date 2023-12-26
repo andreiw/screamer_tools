@@ -24,9 +24,7 @@
 #include <Protocol/DriverBinding.h>
 #include <IndustryStandard/Pci.h>
 #include <Guid/SerialPortLibVendor.h>
-
-#define SAC_CFG_TEXT_OUT 0x200
-#define SAC_CFG_TEXT_IN  0x200
+#include <SacRegs.h>
 
 #define SAC_SIGNATURE  SIGNATURE_32('S','A','C','D')
 
@@ -36,26 +34,32 @@ extern EFI_COMPONENT_NAME_PROTOCOL   gSacComponentName;
 extern EFI_COMPONENT_NAME2_PROTOCOL  gSacComponentName2;
 extern EFI_DRIVER_BINDING_PROTOCOL   gSacDriverBinding;
 
-#define SAC_PRIVATE_FROM_SIO(a) CR(a, SAC_PRIVATE_DATA, SerialIo, SAC_SIGNATURE)
+#define SAC_PRIVATE_FROM_SIO(a)  CR(a, SAC_PRIVATE_DATA, SerialIo, SAC_SIGNATURE)
 
 typedef struct {
-  UINT32 Signature;
-  EFI_PCI_IO_PROTOCOL *PciIo;
-  EFI_SERIAL_IO_PROTOCOL SerialIo;
-  EFI_SERIAL_IO_MODE SerialMode;
-  UINT32 ReadData;
+  UINT32                    Signature;
+  EFI_PCI_IO_PROTOCOL       *PciIo;
+  EFI_SERIAL_IO_PROTOCOL    SerialIo;
+  EFI_SERIAL_IO_MODE        SerialMode;
+  UINT32                    ReadData;
 } SAC_PRIVATE_DATA;
 
 VOID
-SacConWrite (IN  SAC_PRIVATE_DATA *Private,
-             IN  UINT32 CharData);
+SacConWrite (
+  IN  SAC_PRIVATE_DATA  *Private,
+  IN  UINT32            CharData
+  );
 
 UINT32
-SacConRead (IN  SAC_PRIVATE_DATA *Private,
-            IN  BOOLEAN WaitForData);
+SacConRead (
+  IN  SAC_PRIVATE_DATA  *Private,
+  IN  BOOLEAN           WaitForData
+  );
 
 BOOLEAN
-SacConPoll (IN  SAC_PRIVATE_DATA *Private);
+SacConPoll (
+  IN  SAC_PRIVATE_DATA  *Private
+  );
 
 EFI_STATUS
 EFIAPI

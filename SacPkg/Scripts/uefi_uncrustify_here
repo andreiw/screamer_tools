@@ -1,0 +1,2 @@
+D=$(dirname -- "$(readlink -f "${BASH_SOURCE}")")
+git ls-files *.h *.c | ${D}/uefi_uncrustify
