@@ -183,9 +183,7 @@ main (int argc,
       cpl_tlp.cpl.byte_count = 4;
       tx_tlp_size = sizeof (tlp_cpl_t);
 
-      if (tlp.cfg.last_be != 0 ||
-          (tlp.cfg.first_be & 0x1) != 1 ||
-          tlp_cfg_reg (&tlp.cfg) != 0x200) {
+      if (tlp_cfg_reg (&tlp.cfg) != 0x200) {
         cpl_tlp.cpl.status = TLP_CPL_STATUS_UR;
 
         tlp_host_to_packet (&cpl_tlp, &tx_tlp_data,
@@ -207,7 +205,7 @@ main (int argc,
           tx_tlp_size += 4;
           payload = tlp_host_to_packet (&cpl_tlp, &tx_tlp_data,
                                         tx_tlp_size);
-          *payload = 0xffffff00 | getchar();
+          *payload = getchar();
         }
       }
 

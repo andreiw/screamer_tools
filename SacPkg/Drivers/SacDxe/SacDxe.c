@@ -1,5 +1,5 @@
 /** @file
-  Simple Console that sits on a SAC device.
+  SAC device support.
 
   Copyright (C) 2023 Andrei Warkentin. All rights reserved.<BR>
   Copyright (c) 2008 - 2009, Apple Inc. All rights reserved.<BR>
@@ -129,53 +129,33 @@ SacStart (
 
   Private->Signature = SAC_SIGNATURE;
   Private->PciIo = PciIo;
-  Private->SimpleTextOut.Reset = TextOutReset;
-  Private->SimpleTextOut.OutputString = OutputString;
-  Private->SimpleTextOut.TestString = TestString;
-  Private->SimpleTextOut.QueryMode = QueryMode;
-  Private->SimpleTextOut.SetMode = SetMode;
-  Private->SimpleTextOut.SetAttribute = SetAttribute;
-  Private->SimpleTextOut.ClearScreen = ClearScreen;
-  Private->SimpleTextOut.SetCursorPosition = SetCursorPosition;
-  Private->SimpleTextOut.EnableCursor = EnableCursor;
-  Private->SimpleTextOut.Mode = &Private->SimpleTextOutMode;
-  
-  Private->SimpleTextIn.Reset = TextInReset;
-  Private->SimpleTextIn.ReadKeyStroke = ReadKeyStroke;
 
-  Status = gBS->CreateEvent (
-                             EVT_NOTIFY_WAIT,
-                             TPL_NOTIFY,
-                             WaitForKeyEvent,
-                             Private,
-                             &Private->SimpleTextIn.WaitForKey
-                             );
-  if (EFI_ERROR (Status)) {
-    goto out;
-  }
+  Private->SerialIo.Revision = SERIAL_IO_INTERFACE_REVISION;
+  Private->SerialIo.Reset = SacSerialReset;
+  Private->SerialIo.SetAttributes = SacSerialSetAttributes;
+  Private->SerialIo.SetControl = SacSerialSetControl;
+  Private->SerialIo.GetControl = SacSerialGetControl;
+  Private->SerialIo.Read = SacSerialRead;
+  Private->SerialIo.Write = SacSerialWrite;
+  Private->SerialIo.Mode = &Private->SerialMode;
 
-  Private->SimpleTextOutMode.MaxMode = 1;
-  Private->SimpleTextOutMode.Mode = 0;
-  Private->SimpleTextOutMode.Attribute = EFI_TEXT_ATTR (EFI_LIGHTGRAY, EFI_BLACK);
-  Private->SimpleTextOutMode.CursorColumn = 0;
-  Private->SimpleTextOutMode.CursorRow = 0;
-  Private->SimpleTextOutMode.CursorVisible = TRUE;
+  Private->SerialMode.BaudRate = PcdGet64 (PcdUartDefaultBaudRate);
+  Private->SerialMode.DataBits = PcdGet8 (PcdUartDefaultDataBits);
+  Private->SerialMode.Parity = PcdGet8 (PcdUartDefaultParity);
+  Private->SerialMode.StopBits = (UINT32)PcdGet8 (PcdUartDefaultStopBits);
+  Private->SerialMode.ReceiveFifoDepth = PcdGet16 (PcdUartDefaultReceiveFifoDepth);
+  Private->SerialMode.Timeout = SERIAL_PORT_DEFAULT_TIMEOUT;
 
   Status = gBS->InstallMultipleProtocolInterfaces (
     &Controller,
-    &gEfiSimpleTextOutProtocolGuid,
-    &(Private->SimpleTextOut),
-    &gEfiSimpleTextInProtocolGuid,
-    &(Private->SimpleTextIn),
+    &gEfiSerialIoProtocolGuid,
+    &(Private->SerialIo),
     NULL
     );
 
  out:
   if (EFI_ERROR (Status)) {
     if (Private != NULL) {
-      if (Private->SimpleTextIn.WaitForKey != NULL) {
-        gBS->CloseEvent (Private->SimpleTextIn.WaitForKey);
-      }
       FreePool (Private);
     }
     if (PciIo != NULL) {
@@ -195,67 +175,94 @@ SacStop (
   IN EFI_HANDLE                   *ChildHandleBuffer
   )
 {
-  return EFI_UNSUPPORTED;
+  EFI_STATUS               Status;
+  EFI_SERIAL_IO_PROTOCOL  *SerialIo;
+  SAC_PRIVATE_DATA        *Private;
+
+  Status = gBS->OpenProtocol (
+                  Controller,
+                  &gEfiSerialIoProtocolGuid,
+                  (VOID **)&SerialIo,
+                  This->DriverBindingHandle,
+                  Controller,
+                  EFI_OPEN_PROTOCOL_GET_PROTOCOL
+                  );
+  ASSERT_EFI_ERROR (Status);
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  Private = SAC_PRIVATE_FROM_SIO (This);
+
+  Status = gBS->UninstallMultipleProtocolInterfaces (
+    &Controller,
+    &gEfiSerialIoProtocolGuid,
+    &(Private->SerialIo),
+    NULL
+    );
+  if (EFI_ERROR (Status)) {
+    return Status;
+  }
+
+  gBS->CloseProtocol (Controller, &gEfiPciIoProtocolGuid,
+                      This->DriverBindingHandle, Controller);
+
+  FreePool (Private);
+
+  return EFI_SUCCESS;
 }
 
 VOID
 SacConWrite (IN  SAC_PRIVATE_DATA *Private,
-             IN  UINT8 Data)
+             IN  UINT32 CharData)
 {
   Private->PciIo->Pci.Write (Private->PciIo,
-                             EfiPciIoWidthUint8,
+                             EfiPciIoWidthUint32,
                              SAC_CFG_TEXT_IN, 1,
-                             &Data);
+                             &CharData);
 }
 
 BOOLEAN
 SacConPoll (IN  SAC_PRIVATE_DATA *Private)
 {
-  UINT8 Char;
-  EFI_STATUS Status;
-
-  if (Private->ReadData != 0) {
+  if (Private->ReadData != 0xffffffff) {
     return TRUE;
   }
 
-  Char = 0;
-  Status = Private->PciIo->Pci.Read (Private->PciIo,
-                                     EfiPciIoWidthUint8,
-                                     SAC_CFG_TEXT_IN,
-                                     1, &Char);
-  if (EFI_ERROR (Status)) {
-    return FALSE;
+  Private->ReadData = SacConRead (Private, FALSE);
+
+  if (Private->ReadData != 0xffffffff) {
+    return TRUE;
   }
 
-  Private->ReadData = Char;
-  return TRUE;
+  return FALSE;
 }
 
-UINT8
+UINT32
 SacConRead (IN  SAC_PRIVATE_DATA *Private,
             IN  BOOLEAN WaitForData)
 {
-  UINT8 Char;
+  UINT32 CharData;
   EFI_STATUS Status;
 
-  if (Private->ReadData != 0) {
-    Char = Private->ReadData;
-    Private->ReadData = 0;
-    return Char;
+  if (Private->ReadData != 0xffffffff) {
+    CharData = Private->ReadData;
+    Private->ReadData = 0xffffffff;
+    return CharData;
   }
   
-  Char = 0;
+  CharData = 0;
   do {
     Status = Private->PciIo->Pci.Read (Private->PciIo,
-                                       EfiPciIoWidthUint8,
+                                       EfiPciIoWidthUint32,
                                        SAC_CFG_TEXT_IN,
-                                       1, &Char);
+                                       1, &CharData);
     if (EFI_ERROR (Status)) {
       return 0;
     }
-  } while (WaitForData && (Char == 0 || Char == 0xFF));
+  } while (WaitForData && (CharData != 0xffffffff));
 
-  return Char;
+  return CharData;
 }
 
 EFI_STATUS

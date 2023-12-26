@@ -1,5 +1,5 @@
 ## @file
-#  SAC Driver.
+#  SAC device support.
 #
 #  Copyright (C) 2023 Andrei Warkentin. All rights reserved.<BR>
 #
@@ -18,11 +18,11 @@
 [Sources.common]
   SacDxe.c
   ComponentName.c
-  SimpleTextIn.c
-  SimpleTextOut.c
+  SerialIo.c
 
 [Packages]
   MdePkg/MdePkg.dec
+  MdeModulePkg/MdeModulePkg.dec
   SacPkg/SacPkg.dec
 
 [LibraryClasses]
@@ -37,12 +37,16 @@
 [Guids]
 
 [Protocols]
-  gEfiSimpleTextInProtocolGuid
-  gEfiSimpleTextOutProtocolGuid
+  gEfiSerialIoProtocolGuid
   gEfiDevicePathProtocolGuid
   gEfiPciIoProtocolGuid
 
 [FixedPcd]
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultBaudRate         ## CONSUMES
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultDataBits         ## CONSUMES
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultParity           ## CONSUMES
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultStopBits         ## CONSUMES
+  gEfiMdePkgTokenSpaceGuid.PcdUartDefaultReceiveFifoDepth ## CONSUMES
 
 [Depex]
   TRUE

@@ -30,7 +30,7 @@
   #
   BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
   BaseMemoryLib|MdePkg/Library/BaseMemoryLib/BaseMemoryLib.inf
-  PrintLib|MxdePkg/Library/BasePrintLib/BasePrintLib.inf
+  PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
   #
   # UEFI & PI
   #
