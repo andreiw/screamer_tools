@@ -1,4 +1,4 @@
-From b8748858e82d8dbc61565fa7beedb2b399f81f30 Mon Sep 17 00:00:00 2001
+From f84cb63473470d6511906e8b563a11eb26b990d7 Mon Sep 17 00:00:00 2001
 From: "Andrei E. Warkentin" <andreiw@mm.st>
 Date: Fri, 22 Dec 2023 08:15:19 -0600
 Subject: [PATCH] Version 4.12 patch for use with screamer_tools::sac, etc.
@@ -8,7 +8,7 @@ Subject: [PATCH] Version 4.12 patch for use with screamer_tools::sac, etc.
   by sac.
  - 16MiB BAR0
  - 4MiB ROMBAR.
- - 0x4156 ("AW") subsystem for detection.
+ - 0x4157 ("AW") subsystem for detection.
 
 Signed-off-by: Andrei E. Warkentin <andreiw@mm.st>
 ---
