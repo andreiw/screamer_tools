@@ -1,3 +1,9 @@
+/*
+ * Part of screamer_tools.
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
 #pragma once
 
 #include <stdio.h>

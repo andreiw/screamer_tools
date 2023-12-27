@@ -1,3 +1,9 @@
+/*
+ * Part of screamer_tools.
+ *
+ * SPDX-License-Identifier: GPL-3.0
+ */
+
 #include "screamer.h"
 
 static int socket_fd = -1;

@@ -1,4 +1,7 @@
 /*
+ * Dumps incoming TLPs to console (or to remote UDP
+ * socket). Also see wireshark/pcietlp.lua.
+ *
  * Requires the pcileech gateware.
  *
  * SPDX-License-Identifier: GPL-3.0

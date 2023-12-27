@@ -1,8 +1,11 @@
 /*
- * A character device that monitors config register 0x200,
- * outputing everything that is sent over.
+ * A console device that monitors config register 0x200,
+ * allow input/output.
  *
- * Requires the pcileech gateware.
+ * Requires the "AW" updated pcileech gateware. See
+ * pcileech-fpga/ScreamerM2/. Also see SacPkg/Drivers/SacDxe/
+ * for a UEFI driver that exposes an EFI_SERIAL_IO_PROTOCOL
+ * over the PCI device.
  *
  * SPDX-License-Identifier: GPL-3.0
  */
